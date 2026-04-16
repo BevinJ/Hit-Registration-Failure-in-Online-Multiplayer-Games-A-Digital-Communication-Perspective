@@ -37,7 +37,7 @@ You should see:
 
 ### 3 · Open the frontend
 
-Navigate to **http://localhost:5000** in your browser.
+Navigate to **http://localhost:5001** in your browser.
 
 For **multiplayer** (two real players): open the same URL in a **second browser tab**
 or on a second machine on the same network (replace `localhost` with the server's IP).
