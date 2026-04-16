@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hit Registration Simulator</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg0: #040810;
+  --bg1: #080e1a;
+  --bg2: #0c1420;
+  --bg3: #111825;
+  --bd:  #1e293b;
+  --pri: #e2e8f0;
+  --sec: #64748b;
+  --mut: #334155;
+  --p1:  #a855f7;
+  --p2:  #06b6d4;
+  --hit: #22c55e;
+  --hs:  #ef4444;
+  --ms:  #475569;
+  --lo:  #f97316;
+  --wn:  #f59e0b;
+}
+
+body {
+  background: var(--bg0);
+  color: var(--pri);
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  min-height: 100vh;
+  padding: 10px 14px;
+  user-select: none;
+  overflow-x: hidden;
+}
+
+/* ── Header ─────────────────────────────── */
+.hdr { text-align: center; margin-bottom: 10px; }
+.hdr-title {
+  font-size: 20px; font-weight: 900; letter-spacing: 4px;
+  background: linear-gradient(90deg, #a855f7 0%, #7c3aed 45%, #06b6d4 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hdr-sub { color: var(--mut); font-size: 9px; letter-spacing: 2px; margin-top: 2px; }
+
+/* ── Control bar ─────────────────────────── */
+.ctrl {
+  display: flex; gap: 5px; justify-content: center;
+  flex-wrap: wrap; margin-bottom: 10px;
+}
+.btn {
+  padding: 4px 12px; border-radius: 5px;
+  font-family: monospace; font-size: 10px; cursor: pointer;
+  border: 1px solid var(--bd); background: var(--bg2);
+  color: var(--sec); transition: all 0.12s;
+}
+.btn:hover { background: var(--bg3); color: var(--pri); }
+.btn.on { border-color: var(--p1); background: rgba(168,85,247,.09); color: var(--p1); }
+.btn.g.on  { border-color: var(--hit); background: rgba(34,197,94,.08); color: var(--hit); }
+.btn.n.on  { border-color: var(--wn);  background: rgba(245,158,11,.08); color: var(--wn); }
+.btn.b.on  { border-color: var(--lo);  background: rgba(249,115,22,.08); color: var(--lo); }
+.btn.c.on  { border-color: var(--hs);  background: rgba(239,68,68,.08);  color: var(--hs); }
+
+/* ── Main layout ─────────────────────────── */
+.main { display: flex; gap: 10px; align-items: flex-start; }
+.game-col { flex: 1; min-width: 0; }
+
+/* ── Canvas ─────────────────────────────── */
+#cv {
+  display: block; width: 100%;
+  border-radius: 10px; cursor: crosshair;
+  border: 1px solid var(--bd);
+}
+
+/* ── Health bars ─────────────────────────── */
+.hp-row { display: flex; gap: 8px; margin-top: 8px; }
+.hp-card {
+  flex: 1; background: var(--bg1);
+  border-radius: 8px; padding: 8px 12px;
+  border: 1px solid var(--bd);
+}
+.hp-header {
+  display: flex; justify-content: space-between;
+  margin-bottom: 6px; font-size: 10px; font-weight: 700; letter-spacing: 1px;
+}
+.hp-bar { height: 5px; background: var(--bd); border-radius: 3px; overflow: hidden; margin-bottom: 7px; }
+.hp-fill { height: 100%; border-radius: 3px; transition: width .25s ease, background .3s; }
+.st-row { display: flex; gap: 10px; font-size: 9px; color: var(--sec); flex-wrap: wrap; }
+.st-row b { font-weight: 700; }
+
+/* ── Sidebar ─────────────────────────────── */
+.side { width: 252px; flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; }
+
+/* ── Panel ───────────────────────────────── */
+.pnl { background: var(--bg1); border: 1px solid var(--bd); border-radius: 8px; padding: 10px 12px; }
+.pnl-t { color: var(--mut); font-size: 9px; letter-spacing: 2px; margin-bottom: 8px; }
+
+/* ── Conn badge ──────────────────────────── */
+.cbadge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 9px; padding: 3px 8px;
+  border-radius: 10px; border: 1px solid var(--wn); color: var(--wn);
+}
+.cdot { width: 6px; height: 6px; border-radius: 50%; background: var(--wn); }
+
+/* ── Net stat grid ───────────────────────── */
+.ng { display: flex; gap: 5px; margin-bottom: 7px; }
+.nc { flex: 1; background: var(--bg3); border-radius: 5px; padding: 6px 8px; }
+.nc-lbl { color: var(--mut); font-size: 8px; margin-bottom: 3px; }
+.nc-val { font-size: 14px; font-weight: 700; }
+
+/* ── Mismatch bar ────────────────────────── */
+.mm { background: var(--bg3); border-radius: 5px; padding: 6px 8px; }
+.mm-bg { height: 3px; background: var(--bd); border-radius: 2px; margin-top: 5px; overflow: hidden; }
+.mm-fill { height: 100%; border-radius: 2px; transition: width .3s, background .3s; }
+
+/* ── Insight rows ────────────────────────── */
+.ir {
+  background: var(--bg3); border-radius: 5px;
+  padding: 5px 8px; margin-bottom: 4px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.ir:last-child { margin-bottom: 0; }
+.ir-lbl { color: var(--sec); font-size: 8px; }
+.ir-sub { color: var(--mut); font-size: 8px; margin-top: 1px; }
+.ir-val { font-size: 10px; font-weight: 700; }
+
+/* ── Event log ───────────────────────────── */
+.log-list {
+  max-height: 230px; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.log-list::-webkit-scrollbar { width: 3px; }
+.log-list::-webkit-scrollbar-thumb { background: var(--bd); border-radius: 2px; }
+.le {
+  background: var(--bg3); border-radius: 3px;
+  padding: 3px 6px; font-size: 9px;
+  display: flex; justify-content: space-between; align-items: center;
+  border-left: 2px solid transparent;
+}
+.ll { display: flex; gap: 5px; align-items: center; }
+.lr { display: flex; gap: 4px; align-items: center; }
+.log-empty { color: var(--mut); font-size: 10px; text-align: center; padding: 18px 0; }
+
+/* ── Legend ──────────────────────────────── */
+.legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 9px; color: var(--mut); }
+.li { display: flex; align-items: center; gap: 3px; }
+.ld { width: 7px; height: 7px; border-radius: 1px; }
+
+/* ── Footer ──────────────────────────────── */
+.ftr { text-align: center; margin-top: 8px; color: var(--mut); font-size: 8px; letter-spacing: 2px; }
+
+@media (max-width: 860px) {
+  .main { flex-direction: column; }
+  .side { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────────────── -->
+<div class="hdr">
+  <div class="hdr-title">⚡ HIT REGISTRATION SIMULATOR</div>
+  <div class="hdr-sub">REAL-TIME FPS NETWORKING · CLIENT PREDICTION · LAG COMPENSATION · SERVER AUTHORITY</div>
+</div>
+
+<!-- ── CONTROLS ───────────────────────────────────── -->
+<div class="ctrl">
+  <button class="btn g" id="b-good"   onclick="setMode('good')">Good <span style="opacity:.6">15–60ms</span></button>
+  <button class="btn n" id="b-normal" onclick="setMode('normal')">Normal <span style="opacity:.6">50–160ms</span></button>
+  <button class="btn b" id="b-bad"    onclick="setMode('bad')">Bad <span style="opacity:.6">150–320ms</span></button>
+  <button class="btn c" id="b-chaos"  onclick="setMode('chaos')">Chaos <span style="opacity:.6">300–750ms</span></button>
+  <button class="btn"   id="b-auto"   onclick="toggleAuto()">▶ Auto Fire</button>
+  <button class="btn on" id="b-hb"   onclick="toggleHB()">Hitboxes</button>
+  <button class="btn"               onclick="resetGame()">🔄 Reset</button>
+</div>
+
+<!-- ── MAIN ───────────────────────────────────────── -->
+<div class="main">
+
+  <!-- Game column -->
+  <div class="game-col">
+    <canvas id="cv" width="700" height="320"></canvas>
+
+    <!-- Health bars -->
+    <div class="hp-row">
+      <div class="hp-card">
+        <div class="hp-header">
+          <span style="color:var(--p1)">◀ PLAYER 1</span>
+          <span id="hp1v" style="color:var(--hit)">100 HP</span>
+        </div>
+        <div class="hp-bar"><div class="hp-fill" id="hp1f" style="width:100%;background:var(--hit)"></div></div>
+        <div class="st-row">
+          <span>SHT:<b id="p1s" style="color:#94a3b8">0</b></span>
+          <span>HIT:<b id="p1h" style="color:var(--hit)">0</b></span>
+          <span>HS:<b  id="p1x" style="color:var(--hs)">0</b></span>
+          <span>LST:<b id="p1l" style="color:var(--lo)">0</b></span>
+          <span>ACC:<b id="p1a" style="color:var(--p1)">0.0%</b></span>
+        </div>
+      </div>
+      <div class="hp-card">
+        <div class="hp-header">
+          <span style="color:var(--p2)">PLAYER 2 ▶</span>
+          <span id="hp2v" style="color:var(--hit)">100 HP</span>
+        </div>
+        <div class="hp-bar"><div class="hp-fill" id="hp2f" style="width:100%;background:var(--hit)"></div></div>
+        <div class="st-row">
+          <span>SHT:<b id="p2s" style="color:#94a3b8">0</b></span>
+          <span>HIT:<b id="p2h" style="color:var(--hit)">0</b></span>
+          <span>HS:<b  id="p2x" style="color:var(--hs)">0</b></span>
+          <span>LST:<b id="p2l" style="color:var(--lo)">0</b></span>
+          <span>ACC:<b id="p2a" style="color:var(--p2)">0.0%</b></span>
+        </div>
+      </div>
+    </div>
+  </div><!-- /game-col -->
+
+  <!-- Sidebar -->
+  <div class="side">
+
+    <!-- Connection -->
+    <div class="pnl">
+      <div class="pnl-t">▸ CONNECTION</div>
+      <div id="cbadge" class="cbadge">
+        <span class="cdot" id="cdot"></span>
+        <span id="ctxt">Connecting…</span>
+      </div>
+      <div id="crole" style="margin-top:6px;font-size:9px;color:var(--mut)">—</div>
+    </div>
+
+    <!-- Network -->
+    <div class="pnl">
+      <div class="pnl-t">▸ NETWORK SIMULATION</div>
+      <div class="ng">
+        <div class="nc">
+          <div class="nc-lbl">LATENCY</div>
+          <div class="nc-val" id="s-lat" style="color:var(--wn)">50–160ms</div>
+        </div>
+        <div class="nc">
+          <div class="nc-lbl">PKT LOSS</div>
+          <div class="nc-val" id="s-loss" style="color:var(--wn)">10%</div>
+        </div>
+      </div>
+      <div class="mm">
+        <div style="display:flex;justify-content:space-between">
+          <span style="font-size:8px;color:var(--mut)">PREDICTION MISMATCH</span>
+          <span id="mm-r" style="font-size:10px;font-weight:700;color:var(--hit)">0.0%</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:2px;font-size:9px;color:var(--sec)">
+          <span id="mm-c">0/0 shots</span>
+        </div>
+        <div class="mm-bg"><div class="mm-fill" id="mm-b" style="width:0%;background:var(--hit)"></div></div>
+      </div>
+    </div>
+
+    <!-- Insights -->
+    <div class="pnl">
+      <div class="pnl-t">▸ INTELLIGENT INSIGHTS</div>
+      <div class="ir">
+        <div><div class="ir-lbl">Lag Compensation</div><div class="ir-sub">Rewinds 5s history</div></div>
+        <div class="ir-val" style="color:var(--hit)">Active</div>
+      </div>
+      <div class="ir">
+        <div><div class="ir-lbl">Prediction Accuracy</div><div class="ir-sub">Client vs server result</div></div>
+        <div class="ir-val" id="i-pa" style="color:var(--hit)">—</div>
+      </div>
+      <div class="ir">
+        <div><div class="ir-lbl">Network Health</div><div class="ir-sub" id="i-ns">50–160ms · 10% loss</div></div>
+        <div class="ir-val" id="i-nv" style="color:var(--wn)">Normal</div>
+      </div>
+      <div class="ir">
+        <div><div class="ir-lbl">Reconciliations</div><div class="ir-sub">Rollbacks on mismatch/loss</div></div>
+        <div class="ir-val" id="i-rc" style="color:var(--hit)">—</div>
+      </div>
+    </div>
+
+    <!-- Event log -->
+    <div class="pnl">
+      <div class="pnl-t">▸ EVENT LOG <span id="lc" style="color:var(--mut)">(0)</span></div>
+      <div class="log-list" id="ll">
+        <div class="log-empty">AWAITING EVENTS…</div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="pnl">
+      <div class="legend">
+        <div class="li"><div class="ld" style="background:var(--hit)"></div>HIT</div>
+        <div class="li"><div class="ld" style="background:var(--hs)"></div>HEADSHOT</div>
+        <div class="li"><div class="ld" style="background:var(--ms)"></div>MISS</div>
+        <div class="li"><div class="ld" style="background:var(--lo)"></div>LOST</div>
+        <div class="li"><div class="ld" style="background:var(--wn)"></div>⚠ Mismatch</div>
+      </div>
+    </div>
+  </div><!-- /side -->
+</div><!-- /main -->
+
+<div class="ftr">CLICK ENEMY SIDE TO SHOOT &nbsp;·&nbsp; AUTO FIRE FOR CONTINUOUS SIM &nbsp;·&nbsp; CHANGE NETWORK MODE TO TEST CONDITIONS</div>
+
+<!-- ── Socket.IO (CDN) ─────────────────────────────── -->
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<!-- ── GAME LOGIC ─────────────────────────────────── -->
+<script>
+"use strict";
+
+// ═══════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════
+const CW = 700, CH = 320;
+const HEAD_R = 20, HEAD_OY = -44;
+const BODY_W = 38, BODY_H = 70;
+const BULLET_DUR = 260;
+
+const SPAWN = {
+  player1: { x: 120, y: 180 },
+  player2: { x: 580, y: 180 },
+};
+const COL = { player1: '#a855f7', player2: '#06b6d4' };
+
+const MODES = {
+  good:   { min: 15,  max: 60,  loss: 0.02, label: 'Good',   col: '#22c55e' },
+  normal: { min: 50,  max: 160, loss: 0.10, label: 'Normal', col: '#eab308' },
+  bad:    { min: 150, max: 320, loss: 0.27, label: 'Bad',    col: '#f97316' },
+  chaos:  { min: 300, max: 750, loss: 0.47, label: 'Chaos',  col: '#ef4444' },
+};
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+const S = {
+  mode: 'normal',
+  auto: false,
+  showHB: true,
+  role: null,
+  connected: false,
+  useLocal: false,
+
+  pl: {
+    player1: { health: 100, shots: 0, hits: 0, hs: 0, lost: 0 },
+    player2: { health: 100, shots: 0, hits: 0, hs: 0, lost: 0 },
+  },
+
+  bullets: [],
+  blood:   [],
+  pops:    [],
+  log:     [],
+  ps:      { total: 0, wrong: 0 },   // prediction stats
+
+  fire:  { player1: 0, player2: 0 },  // timestamp until firing anim ends
+  flash: { player1: 0, player2: 0 },  // timestamp until hit flash ends
+};
+
+// ═══════════════════════════════════════
+// CANVAS
+// ═══════════════════════════════════════
+const cv  = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+// ═══════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════
+let _uid = 0;
+const uid  = () => (++_uid).toString(36);
+const rnd  = (a, b) => a + Math.random() * (b - a);
+const clmp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+function hexA(h, a) {
+  const r = parseInt(h.slice(1,3),16), g = parseInt(h.slice(3,5),16), b = parseInt(h.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function rr(x, y, w, h, r) {
+  // normalise negative dimensions (used for mirrored gun components)
+  if (w < 0) { x += w; w = -w; }
+  if (h < 0) { y += h; h = -h; }
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ═══════════════════════════════════════
+// HIT DETECTION  (client-side prediction)
+// ═══════════════════════════════════════
+function evalHit(ax, ay, target, ox = 0, oy = 0) {
+  const p = SPAWN[target];
+  const px = p.x + ox, py = p.y + oy;
+  if (Math.hypot(ax - px, ay - (py + HEAD_OY)) <= HEAD_R) return 'HEADSHOT';
+  if (ax >= px - BODY_W/2 && ax <= px + BODY_W/2 &&
+      ay >= py - BODY_H/2 && ay <= py + BODY_H/2) return 'HIT';
+  return 'MISS';
+}
+
+// ═══════════════════════════════════════
+// BLOOD
+// ═══════════════════════════════════════
+function mkBlood(x, y, isHead, shooter) {
+  const n = isHead ? 12 : 7;
+  return {
+    id: uid(), x, y, isHead, shooter,
+    ts: Date.now(), confirmed: false,
+    pts: Array.from({ length: n }, () => ({
+      a: Math.random() * Math.PI * 2,
+      r: rnd(isHead ? 10 : 5, isHead ? 26 : 15),
+      ox: rnd(-3, 3), oy: rnd(-3, 3),
+    })),
+  };
+}
+
+// ═══════════════════════════════════════
+// FLOATING POPS
+// ═══════════════════════════════════════
+function addPop(x, y, txt, col) {
+  const p = { id: uid(), x, y, ts: Date.now(), txt, col };
+  S.pops.push(p);
+  setTimeout(() => { S.pops = S.pops.filter(e => e.id !== p.id); }, 1500);
+}
+
+// ═══════════════════════════════════════
+// SHOOT
+// ═══════════════════════════════════════
+function shoot(shooter, target, ax, ay) {
+  const pred = evalHit(ax, ay, target);
+  const bid  = uid();
+
+  S.pl[shooter].shots++;
+  updateHPUI(shooter);
+
+  // Bullet
+  const from = SPAWN[shooter];
+  const gx = shooter === 'player1' ? from.x + 40 : from.x - 40;
+  S.bullets.push({ id: bid, shooter, x1: gx, y1: from.y - 4, x2: ax, y2: ay, ts: Date.now() });
+  setTimeout(() => { S.bullets = S.bullets.filter(b => b.id !== bid); }, BULLET_DUR + 80);
+
+  // Muzzle flash
+  S.fire[shooter] = Date.now() + 130;
+
+  // Client-prediction blood
+  if (pred !== 'MISS') {
+    S.blood.push(mkBlood(ax, ay, pred === 'HEADSHOT', shooter));
+  }
+
+  // Send to server or local sim
+  const data = {
+    shooter, target, aim_x: ax, aim_y: ay,
+    timestamp: Date.now() / 1000,
+    prediction: pred,
+    net_mode: S.mode,
+  };
+
+  if (!S.useLocal && socket && socket.connected) {
+    socket.emit('shoot', data);
+  } else {
+    localSim(data);
+  }
+}
+
+// ── LOCAL SIMULATION (no server needed) ─
+function localSim(data) {
+  const m = MODES[data.net_mode];
+  const lat = rnd(m.min, m.max);
+  setTimeout(() => {
+    if (Math.random() < m.loss) {
+      handleResult({
+        result: 'LOST', shooter: data.shooter, target: data.target,
+        latency: Math.round(lat), prediction: data.prediction,
+        aim_x: data.aim_x, aim_y: data.aim_y,
+      });
+      return;
+    }
+    const ox = rnd(-5, 5), oy = rnd(-5, 5);
+    const result = evalHit(data.aim_x, data.aim_y, data.target, ox, oy);
+    const damage = result === 'HEADSHOT' ? 40 : result === 'HIT' ? 22 : 0;
+    if (damage) S.pl[data.target].health = Math.max(0, S.pl[data.target].health - damage);
+    handleResult({
+      result, shooter: data.shooter, target: data.target,
+      aim_x: data.aim_x, aim_y: data.aim_y, damage,
+      latency: Math.round(lat), prediction: data.prediction,
+      health: S.pl[data.target].health,
+    });
+  }, lat);
+}
+
+// ── HANDLE SERVER (or local) RESULT ─────
+function handleResult(d) {
+  const { result, shooter, target, latency, prediction, aim_x, aim_y } = d;
+  const isLost = result === 'LOST';
+  const ok     = result === prediction && !isLost;
+
+  S.ps.total++;
+  if (!ok) S.ps.wrong++;
+
+  if (isLost) {
+    S.pl[shooter].lost++;
+    // Rollback unconfirmed blood from this shooter
+    S.blood = S.blood.filter(e => e.confirmed || e.shooter !== shooter);
+    addPop(aim_x, aim_y - 22, 'PKT LOST', '#f97316');
+  } else if (result === 'HIT' || result === 'HEADSHOT') {
+    S.pl[shooter].hits++;
+    if (result === 'HEADSHOT') S.pl[shooter].hs++;
+    // Confirm prediction blood
+    S.blood = S.blood.map(e =>
+      !e.confirmed && e.shooter === shooter ? { ...e, confirmed: true } : e
+    );
+    // Apply server-authoritative health
+    if (d.health !== undefined) S.pl[target].health = d.health;
+    S.flash[target] = Date.now() + 200;
+    if (result === 'HEADSHOT') addPop(aim_x, aim_y, 'HEADSHOT!', '#ef4444');
+  } else {
+    // Server says MISS — rollback prediction blood
+    if (prediction !== 'MISS') {
+      S.blood = S.blood.filter(e => e.confirmed || e.shooter !== shooter);
+    }
+  }
+
+  updateHPUI('player1');
+  updateHPUI('player2');
+  updateMMUI();
+
+  const entry = {
+    id: uid(), ts: Date.now(),
+    shooter, target, lat: latency || 0,
+    pred: prediction, res: result, ok,
+  };
+  S.log.unshift(entry);
+  if (S.log.length > 80) S.log.pop();
+  updateLog();
+}
+
+// ═══════════════════════════════════════
+// RENDER  (requestAnimationFrame loop)
+// ═══════════════════════════════════════
+function render() {
+  const now = Date.now();
+
+  /* --- background --- */
+  ctx.fillStyle = '#080e1a';
+  ctx.fillRect(0, 0, CW, CH);
+
+  // Grid
+  ctx.strokeStyle = '#111826';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x < CW; x += 38) {
+    ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,CH); ctx.stroke();
+  }
+  for (let y = 0; y < CH; y += 38) {
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(CW,y); ctx.stroke();
+  }
+
+  // Centre divider
+  ctx.setLineDash([4,5]);
+  ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(CW/2, 22); ctx.lineTo(CW/2, CH-6); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Zone labels
+  ctx.font = '9px "Courier New"'; ctx.textAlign = 'center';
+  ctx.fillStyle = '#1e293b';
+  ctx.fillText('P1 ZONE', CW/4, 16);
+  ctx.fillText('P2 ZONE', 3*CW/4, 16);
+
+  /* --- hitboxes --- */
+  if (S.showHB) {
+    ['player1','player2'].forEach(id => {
+      const p = SPAWN[id], c = COL[id];
+      ctx.setLineDash([3,3]); ctx.lineWidth = 0.6;
+      ctx.strokeStyle = hexA(c, 0.55);
+      ctx.beginPath(); ctx.arc(p.x, p.y + HEAD_OY, HEAD_R, 0, Math.PI*2); ctx.stroke();
+      ctx.strokeStyle = hexA(c, 0.3);
+      ctx.strokeRect(p.x - BODY_W/2, p.y - BODY_H/2, BODY_W, BODY_H);
+      ctx.setLineDash([]);
+    });
+  }
+
+  /* --- blood --- */
+  S.blood.forEach(e => {
+    const age  = now - e.ts;
+    const fade = Math.max(0, 1 - age / 5500);
+    if (fade <= 0) return;
+    ctx.globalAlpha = fade;
+    const rc = e.isHead ? '#dc2626' : '#b91c1c';
+    ctx.fillStyle = rc; ctx.strokeStyle = rc;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.isHead ? 9 : 6, 0, Math.PI*2); ctx.fill();
+    ctx.lineWidth = e.isHead ? 2 : 1.5; ctx.lineCap = 'round';
+    e.pts.forEach(pt => {
+      ctx.beginPath();
+      ctx.moveTo(e.x + pt.ox, e.y + pt.oy);
+      ctx.lineTo(e.x + Math.cos(pt.a)*pt.r, e.y + Math.sin(pt.a)*pt.r);
+      ctx.stroke();
+    });
+  });
+  ctx.globalAlpha = 1;
+
+  /* --- players --- */
+  ['player1','player2'].forEach(id => drawPlayer(id, now));
+
+  /* --- bullets --- */
+  S.bullets.forEach(b => {
+    const t = Math.min(1, (now - b.ts) / BULLET_DUR);
+    const x = b.x1 + (b.x2 - b.x1) * t;
+    const y = b.y1 + (b.y2 - b.y1) * t;
+    const t0 = Math.max(0, t - 0.13);
+    const x0 = b.x1 + (b.x2 - b.x1) * t0;
+    const y0 = b.y1 + (b.y2 - b.y1) * t0;
+    const c = COL[b.shooter];
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x,y); ctx.stroke();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = c;
+    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'white';
+    ctx.beginPath(); ctx.arc(x, y, 1.5, 0, Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  /* --- pops --- */
+  S.pops.forEach(p => {
+    const age  = now - p.ts;
+    const fade = Math.max(0, 1 - age / 1500);
+    const ry   = p.y - (age / 1500) * 42;
+    ctx.globalAlpha = fade;
+    ctx.fillStyle = p.col;
+    ctx.font = `${p.txt === 'HEADSHOT!' ? '800 14px' : '700 11px'} "Courier New"`;
+    ctx.textAlign = 'center';
+    ctx.fillText(p.txt, p.x, ry);
+  });
+  ctx.globalAlpha = 1;
+
+  /* --- footer --- */
+  const m = MODES[S.mode];
+  ctx.fillStyle = '#1e293b';
+  ctx.font = '8px "Courier New"'; ctx.textAlign = 'center';
+  ctx.fillText(
+    `${m.label.toUpperCase()} NET · ${m.min}–${m.max}ms · ${(m.loss*100).toFixed(0)}% PKT LOSS · CLICK TO SHOOT`,
+    CW/2, CH-5
+  );
+
+  requestAnimationFrame(render);
+}
+
+// ─── DRAW PLAYER ─────────────────────────
+function drawPlayer(id, now) {
+  const p  = SPAWN[id];
+  const c  = COL[id];
+  const f  = id === 'player1' ? 1 : -1;
+  const firing   = now < S.fire[id];
+  const flashing = now < S.flash[id];
+
+  ctx.save();
+  ctx.translate(p.x, p.y);
+
+  // Hit-flash overlay
+  if (flashing) {
+    ctx.fillStyle = 'rgba(255,40,40,0.26)';
+    rr(-41, -80, 82, 152, 8); ctx.fill();
+  }
+
+  // Ground shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.32)';
+  ctx.beginPath(); ctx.ellipse(0, 71, 22, 5, 0, 0, Math.PI*2); ctx.fill();
+
+  // Legs
+  ctx.fillStyle = hexA(c, 0.68);
+  rr(-14, 34, 11, 32, 4); ctx.fill();
+  rr(3, 34, 11, 32, 4); ctx.fill();
+  // Boots
+  ctx.fillStyle = hexA(c, 0.55);
+  rr(f > 0 ? -17 : -2, 63, 17, 6, 4); ctx.fill();
+
+  // Body
+  ctx.fillStyle = hexA(c, 0.82);
+  rr(-19, -28, 38, 62, 6); ctx.fill();
+  // Chest panel
+  ctx.fillStyle = hexA(c, 0.26);
+  rr(-8, -18, 16, 24, 3); ctx.fill();
+
+  // Neck
+  ctx.fillStyle = hexA(c, 0.72);
+  ctx.fillRect(-5, -34, 10, 8);
+
+  // Arms
+  ctx.fillStyle = hexA(c, 0.70);
+  rr(f > 0 ?  15 : -24, -22, 9, 36, 4); ctx.fill();
+  rr(f > 0 ? -24 :  15, -22, 9, 30, 4); ctx.fill();
+
+  // Gun body
+  ctx.fillStyle = hexA(c, 0.86);
+  rr(f * 14, -11, f * 36, 8, 3); ctx.fill();
+  // Receiver
+  ctx.fillStyle = '#1e293b';
+  rr(f * 48, -16, f * 16, 13, 3); ctx.fill();
+  // Barrel
+  ctx.fillStyle = '#334155';
+  rr(f * 62, -12, f * 14, 5, 2); ctx.fill();
+
+  // Head
+  ctx.fillStyle = hexA(c, 0.90);
+  ctx.beginPath(); ctx.arc(0, HEAD_OY, HEAD_R, 0, Math.PI*2); ctx.fill();
+  // Helmet brim
+  ctx.fillStyle = hexA(c, 0.40);
+  rr(-HEAD_R+3, HEAD_OY - HEAD_R + 4, (HEAD_R-3)*2, 7, 2); ctx.fill();
+  // Visor
+  ctx.fillStyle = '#050a10';
+  rr(f > 0 ? -5 : -7, HEAD_OY - 6, 12, 6, 2); ctx.fill();
+  ctx.fillStyle = hexA(c, 0.20);
+  rr(f > 0 ? -5 : -7, HEAD_OY - 6, 12, 6, 2); ctx.fill();
+
+  // Muzzle flash
+  if (firing) {
+    const mx = f * 78, my = -8;
+    ctx.fillStyle = 'rgba(251,191,36,0.90)';
+    ctx.beginPath(); ctx.arc(mx, my, 13, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(mx, my, 5, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#fbbf24'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(mx, my); ctx.lineTo(f * 95, my); ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+// ═══════════════════════════════════════
+// UI UPDATES
+// ═══════════════════════════════════════
+function updateHPUI(id) {
+  const p = S.pl[id];
+  const n = id === 'player1' ? '1' : '2';
+  const acc = p.shots > 0 ? (p.hits / p.shots * 100).toFixed(1) : '0.0';
+  const hpc = p.health > 50 ? '#22c55e' : p.health > 25 ? '#f59e0b' : '#ef4444';
+  qs(`#hp${n}v`).textContent = `${p.health} HP`;
+  qs(`#hp${n}v`).style.color = hpc;
+  qs(`#hp${n}f`).style.width = p.health + '%';
+  qs(`#hp${n}f`).style.background = hpc;
+  qs(`#p${n}s`).textContent = p.shots;
+  qs(`#p${n}h`).textContent = p.hits;
+  qs(`#p${n}x`).textContent = p.hs;
+  qs(`#p${n}l`).textContent = p.lost;
+  qs(`#p${n}a`).textContent = acc + '%';
+}
+
+function updateMMUI() {
+  const { total, wrong } = S.ps;
+  const rate = total > 0 ? (wrong / total * 100).toFixed(1) : '0.0';
+  const rn   = parseFloat(rate);
+  const col  = rn > 20 ? '#ef4444' : '#22c55e';
+  qs('#mm-r').textContent = rate + '%';
+  qs('#mm-r').style.color = col;
+  qs('#mm-c').textContent = `${wrong}/${total} shots`;
+  qs('#mm-b').style.width = Math.min(100, rn) + '%';
+  qs('#mm-b').style.background = col;
+  qs('#i-pa').textContent = total > 0 ? (100 - rn).toFixed(0) + '%' : '—';
+  qs('#i-pa').style.color = rn > 20 ? '#ef4444' : '#22c55e';
+  qs('#i-rc').textContent = total > 0 ? `${wrong} applied` : '—';
+  qs('#i-rc').style.color = wrong < 8 ? '#22c55e' : '#ef4444';
+}
+
+function updateNetUI() {
+  const m = MODES[S.mode];
+  qs('#s-lat').textContent = `${m.min}–${m.max}ms`;
+  qs('#s-lat').style.color = m.col;
+  qs('#s-loss').textContent = `${(m.loss*100).toFixed(0)}%`;
+  qs('#s-loss').style.color = m.col;
+  qs('#i-nv').textContent = m.label;
+  qs('#i-nv').style.color = m.col;
+  qs('#i-ns').textContent = `${m.min}–${m.max}ms · ${(m.loss*100).toFixed(0)}% loss`;
+}
+
+const RC = { HIT:'#22c55e', HEADSHOT:'#ef4444', MISS:'#475569', LOST:'#f97316' };
+const RS = { HIT:'HIT', HEADSHOT:'HS', MISS:'MISS', LOST:'LST' };
+
+function updateLog() {
+  const ll = qs('#ll');
+  qs('#lc').textContent = `(${S.log.length})`;
+  if (!S.log.length) { ll.innerHTML = '<div class="log-empty">AWAITING EVENTS…</div>'; return; }
+  ll.innerHTML = S.log.slice(0, 60).map(e => {
+    const rc = RC[e.res] || '#475569';
+    const pc = RC[e.pred] || '#475569';
+    const sc = COL[e.shooter], tc = COL[e.target];
+    const warn = (!e.ok && e.res !== 'LOST') ? '<span style="color:#f59e0b">⚠</span>' : '';
+    return `<div class="le" style="border-color:${rc}">
+      <div class="ll">
+        <span style="color:${sc}">${e.shooter==='player1'?'P1':'P2'}</span>
+        <span style="color:#1e293b">→</span>
+        <span style="color:${tc}">${e.target==='player1'?'P1':'P2'}</span>
+        <span style="color:#334155">${e.lat}ms</span>
+      </div>
+      <div class="lr">
+        <span style="color:${pc};opacity:.65;font-size:8px">${(e.pred||'?')[0]}</span>
+        <span style="color:#334155">→</span>
+        <span style="color:${rc};font-weight:700">${RS[e.res]||e.res}</span>
+        ${warn}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateConn(status, role, extra) {
+  const badge = qs('#cbadge'), dot = qs('#cdot'), txt = qs('#ctxt'), roleEl = qs('#crole');
+  const map = {
+    ok:    ['#22c55e', 'Connected to server'],
+    lone:  ['#eab308', 'Standalone mode'],
+    off:   ['#ef4444', 'Disconnected'],
+    wait:  ['#eab308', 'Connecting…'],
+  };
+  const [col, label] = map[status] || map.wait;
+  badge.style.borderColor = col; badge.style.color = col;
+  dot.style.background = col;
+  txt.textContent = label;
+  roleEl.textContent = role ? `Role: ${role}${extra ? ' · '+extra : ''}` : (extra || '—');
+}
+
+const qs = s => document.querySelector(s);
+
+// ═══════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════
+function setMode(m) {
+  S.mode = m;
+  ['good','normal','bad','chaos'].forEach(k => qs(`#b-${k}`).classList.toggle('on', k===m));
+  updateNetUI();
+}
+
+let autoHandle = null;
+function toggleAuto() {
+  S.auto = !S.auto;
+  qs('#b-auto').classList.toggle('on', S.auto);
+  qs('#b-auto').textContent = S.auto ? '⏹ Stop' : '▶ Auto Fire';
+  S.auto ? startAuto() : stopAuto();
+}
+function startAuto() {
+  function fire() {
+    if (!S.auto) return;
+    const shooter = Math.random() > .5 ? 'player1' : 'player2';
+    const target  = shooter === 'player1' ? 'player2' : 'player1';
+    const tp = SPAWN[target];
+    const hit = Math.random() < 0.62;
+    shoot(shooter, target,
+      tp.x + (hit ? rnd(-18,18) : rnd(-70,70)),
+      tp.y + HEAD_OY/2 + (hit ? rnd(-22,32) : rnd(-60,60)),
+    );
+    autoHandle = setTimeout(fire, 800 + rnd(-160, 260));
+  }
+  fire();
+}
+function stopAuto() { clearTimeout(autoHandle); autoHandle = null; }
+
+function toggleHB() {
+  S.showHB = !S.showHB;
+  qs('#b-hb').classList.toggle('on', S.showHB);
+}
+
+function resetGame() {
+  S.pl.player1 = { health:100, shots:0, hits:0, hs:0, lost:0 };
+  S.pl.player2 = { health:100, shots:0, hits:0, hs:0, lost:0 };
+  S.blood = []; S.log = []; S.ps = { total:0, wrong:0 };
+  updateHPUI('player1'); updateHPUI('player2');
+  updateMMUI(); updateLog();
+  if (!S.useLocal && socket && socket.connected) socket.emit('reset_game', {});
+}
+
+// ═══════════════════════════════════════
+// CLICK TO SHOOT
+// ═══════════════════════════════════════
+cv.addEventListener('click', e => {
+  const rect = cv.getBoundingClientRect();
+  const sx = CW / rect.width, sy = CH / rect.height;
+  const x = (e.clientX - rect.left) * sx;
+  const y = (e.clientY - rect.top)  * sy;
+  const d1 = Math.hypot(x - SPAWN.player1.x, y - SPAWN.player1.y);
+  const d2 = Math.hypot(x - SPAWN.player2.x, y - SPAWN.player2.y);
+  if (d2 < d1) shoot('player1', 'player2', x, y);
+  else          shoot('player2', 'player1', x, y);
+});
+
+// ═══════════════════════════════════════
+// SOCKET.IO
+// ═══════════════════════════════════════
+let socket;
+function connectSocket() {
+  try {
+    socket = io('http://localhost:5000', {
+      timeout: 3000,
+      reconnectionAttempts: 3,
+    });
+
+    socket.on('connect', () => {
+      S.connected = true; S.useLocal = false;
+      updateConn('ok', S.role, null);
+    });
+
+    socket.on('connect_error', () => {
+      if (!S.useLocal) {
+        S.useLocal = true;
+        updateConn('lone', null, 'No server — simulating locally');
+      }
+    });
+
+    socket.on('disconnect', () => {
+      S.connected = false;
+      updateConn('off', S.role, null);
+    });
+
+    socket.on('role_assigned', d => {
+      S.role = d.role;
+      updateConn('ok', d.role, `${d.player_count}/2 players`);
+      if (d.state) {
+        S.pl.player1.health = d.state.player1.health;
+        S.pl.player2.health = d.state.player2.health;
+        updateHPUI('player1'); updateHPUI('player2');
+      }
+    });
+
+    socket.on('player_joined', d => updateConn('ok', S.role, `${d.player_count}/2 players`));
+    socket.on('player_left',   d => updateConn('ok', S.role, `${d.player_count}/2 players`));
+
+    socket.on('shot_result', handleResult);
+
+    socket.on('game_reset', d => {
+      if (d.state) {
+        S.pl.player1.health = d.state.player1.health;
+        S.pl.player2.health = d.state.player2.health;
+      }
+      S.blood = []; S.log = []; S.ps = { total:0, wrong:0 };
+      updateHPUI('player1'); updateHPUI('player2');
+      updateMMUI(); updateLog();
+    });
+
+  } catch (err) {
+    S.useLocal = true;
+    updateConn('lone', null, 'Standalone mode');
+  }
+}
+
+// ═══════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════
+// Periodic blood cleanup
+setInterval(() => {
+  const cut = Date.now() - 6500;
+  S.blood = S.blood.filter(e => e.ts > cut);
+}, 3000);
+
+// Initial UI state
+setMode('normal');
+qs('#b-hb').classList.add('on');
+updateHPUI('player1');
+updateHPUI('player2');
+updateMMUI();
+updateLog();
+
+connectSocket();
+render();
+</script>
+</body>
+</html>
